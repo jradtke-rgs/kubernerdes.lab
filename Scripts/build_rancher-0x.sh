@@ -16,7 +16,7 @@ sudo su -
 # Remove any existing host entry
 sudo sed -i -e '/rancher/d' /etc/hosts
 # Add all the Rancher Nodes to /etc/hosts
-cat << EOF | tee -a /etc/hosts
+cat << EOF | tee -a  /etc/hosts
 
 # Rancher Nodes
 10.10.12.211    rancher-01.homelab.kubernerdes.com rancher-01
@@ -30,6 +30,9 @@ export MY_K3S_INSTALL_CHANNEL=v1.32
 export MY_K3S_TOKEN=Waggoner
 export MY_K3S_ENDPOINT=10.10.12.210
 export MY_K3S_HOSTNAME=rancher.homelab.kubernerdes.com
+
+# Make sure the proxy allows port 6443
+# TODO write a test for this?
 
 # Run the install process
 case $(uname -n) in
@@ -56,6 +59,14 @@ grep DNS cert.0
 sed -i -e "s/127.0.0.1/${MY_K3S_ENDPOINT}/g" $KUBECONFIG
 openssl s_client -connect 127.0.0.1:6443 -showcerts </dev/null | openssl x509 -noout -text > cert.1
 
+. /etc/*release*
+case $VARIANT in 
+  Micro)
+    echo "Shutting down to ensure transactional update is committed"
+    shutdown now -r
+  ;;
+esac
+
 ## RANCHER FOooo
 # Run this from kubernerd
 helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
@@ -66,7 +77,6 @@ CERTMGR_VERSION=v1.18.0
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/${CERTMGR_VERSION}/cert-manager.crds.yaml
 
 helm repo add jetstack https://charts.jetstack.io
-
 helm repo update
 
 helm install cert-manager jetstack/cert-manager \
